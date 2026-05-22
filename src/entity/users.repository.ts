@@ -6,7 +6,12 @@ function getByEmail(email: string) {
   });
 }
 
-function create(email: string, passwordHash: string, name: string, activationToken: string) {
+function create(
+  email: string,
+  passwordHash: string,
+  name: string,
+  activationToken: string,
+) {
   return db.user.create({
     data: {
       email,

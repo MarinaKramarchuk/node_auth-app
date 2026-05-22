@@ -160,7 +160,11 @@ const forgotPassword: RequestHandler = async (req, res) => {
 };
 
 const resetPassword: RequestHandler = async (req, res) => {
-  const { token, password } = req.body;
+  const { token, password, confirmation } = req.body;
+
+  if (password !== confirmation) {
+    return res.status(400).json({ errors: { confirmation: 'Passwords do not match' }, message: 'Validation error' });
+  }
 
   const error = userService.validatePassword(password);
   if (error) {
@@ -180,11 +184,16 @@ const resetPassword: RequestHandler = async (req, res) => {
 };
 
 const updateProfile: RequestHandler = async (req, res) => {
-  const { name, email } = req.body;
+  const { name, email, confirmation, password } = req.body;
   const currentUser = (req as any).user;
 
   if (!currentUser) {
     return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  const dbUser = await usersRepository.getByEmail(currentUser.email);
+  if (!dbUser) {
+    return res.status(404).json({ message: 'User not found' });
   }
 
   const updateData: { name?: string; email?: string } = {};
@@ -194,6 +203,18 @@ const updateProfile: RequestHandler = async (req, res) => {
   }
 
   if (email && email !== currentUser.email) {
+    if (!password) {
+      return res.status(400).json({ errors: { password: 'Password is required to change email' }, message: 'Validation error' });
+    }
+    const isPasswordValid = await bcrypt.compare(password, dbUser.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ errors: { password: 'Wrong password' }, message: 'Validation error' });
+    }
+
+    if (email !== confirmation) {
+      return res.status(400).json({ errors: { confirmation: 'Emails do not match' }, message: 'Validation error' });
+    }
+
     const emailError = userService.validateEmail(email);
     if (emailError) {
       return res.status(400).json({ errors: { email: emailError }, message: 'Validation error' });
@@ -216,11 +237,24 @@ const updateProfile: RequestHandler = async (req, res) => {
 };
 
 const updatePasswordProfile: RequestHandler = async (req, res) => {
-  const { password } = req.body;
+  const { oldPassword, password } = req.body;
   const currentUser = (req as any).user;
 
   if (!currentUser) {
     return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  const dbUser = await usersRepository.getByEmail(currentUser.email);
+  if (!dbUser) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+
+  if (!oldPassword) {
+    return res.status(400).json({ errors: { oldPassword: 'Old password is required' }, message: 'Validation error' });
+  }
+  const isOldPasswordValid = await bcrypt.compare(oldPassword, dbUser.password);
+  if (!isOldPasswordValid) {
+    return res.status(400).json({ errors: { oldPassword: 'Wrong old password' }, message: 'Validation error' });
   }
 
   const error = userService.validatePassword(password);
