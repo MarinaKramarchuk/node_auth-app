@@ -18,7 +18,7 @@ export function send(email: string, subject: string, html: string) {
     subject,
     html,
   });
-};
+}
 
 export function sendActivationLink(email: string, activationToken: string) {
   const link = `${process.env.CLIENT_URL}/activate/${email}/${activationToken}`;
@@ -38,7 +38,7 @@ export function sendActivationLink(email: string, activationToken: string) {
   `;
 
   return send(email, 'Account activation', html);
-};
+}
 
 export const mailer = {
   send,

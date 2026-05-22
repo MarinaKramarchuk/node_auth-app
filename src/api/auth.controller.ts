@@ -1,6 +1,5 @@
 import bcrypt from 'bcrypt';
-import crypto from 'crypto';
-import { RequestHandler, Response } from 'express';
+import type { RequestHandler, Response as ExpressResponse } from 'express';
 import { usersRepository } from '../entity/users.repository.js';
 import { mailer } from '../utils/mailer.js';
 import { NormalizedUser, userService } from '../services/user.service.js';
@@ -48,7 +47,7 @@ const register: RequestHandler = async (req, res) => {
   });
 };
 
-async function sendAuthentication(res: Response, user: User) {
+async function sendAuthentication(res: ExpressResponse, user: User) {
   const userData = userService.normalize(user);
   const accessToken = jwt.generateAccessToken(userData);
   const refreshToken = jwt.generateRefreshToken(userData);
@@ -118,6 +117,7 @@ const refresh: RequestHandler = async (req, res) => {
 
   if (!user || !userData || !token || token.userId !== user.id) {
     res.clearCookie('refreshToken');
+
     return res.status(401).json({ message: 'Invalid token' });
   }
 

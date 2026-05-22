@@ -1,9 +1,13 @@
-import { Request, Response, NextFunction } from 'express';
+import type {
+  Request as ExpressRequest,
+  Response as ExpressResponse,
+  NextFunction,
+} from 'express';
 import { jwt } from '../utils/jwt.js';
 
 export function authMiddleware(
-  req: Request,
-  res: Response,
+  req: ExpressRequest,
+  res: ExpressResponse,
   next: NextFunction,
 ) {
   const authHeader = req.headers['authorization'] || '';
@@ -11,6 +15,7 @@ export function authMiddleware(
 
   if (!authHeader || !accessToken) {
     res.status(401).json({ message: 'Token is required' });
+
     return;
   }
 
@@ -18,6 +23,7 @@ export function authMiddleware(
 
   if (!userData) {
     res.status(401).json({ message: 'Invalid token' });
+
     return;
   }
 

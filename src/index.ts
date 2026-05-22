@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import closeWithGrace, { CloseWithGraceCallback } from 'close-with-grace';
 import { createApp } from './app.js';
 import { db } from './utils/db.js';
