@@ -27,5 +27,7 @@ export function authMiddleware(
     return;
   }
 
+  (req as any).user = userData;
+
   next();
 }

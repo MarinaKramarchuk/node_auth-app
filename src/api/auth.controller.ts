@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import type { RequestHandler, Response as ExpressResponse } from 'express';
+import { RequestHandler, Response as ExpressResponse } from 'express';
 import { usersRepository } from '../entity/users.repository.js';
 import { mailer } from '../utils/mailer.js';
 import { NormalizedUser, userService } from '../services/user.service.js';
@@ -8,7 +8,11 @@ import { User } from '@prisma/client';
 import { tokensRepository } from '../entity/tokens.repository.js';
 
 const register: RequestHandler = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, name } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ message: 'Name is required' });
+  }
 
   const errors = {
     email: userService.validateEmail(email),
@@ -31,12 +35,13 @@ const register: RequestHandler = async (req, res) => {
     });
   }
 
-  const activationToken = crypto.randomUUID();
+  const activationToken = globalThis.crypto.randomUUID();
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const user = await usersRepository.create(
     email,
     hashedPassword,
+    name,
     activationToken,
   );
 
@@ -139,10 +144,104 @@ const logout: RequestHandler = async (req, res) => {
   res.sendStatus(204);
 };
 
+const forgotPassword: RequestHandler = async (req, res) => {
+  const { email } = req.body;
+  const user = await usersRepository.getByEmail(email);
+
+  if (!user) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+
+  const resetToken = globalThis.crypto.randomUUID();
+  await usersRepository.updateResetToken(email, resetToken);
+  await mailer.sendResetLink(email, resetToken);
+
+  res.json({ message: 'Reset link has been sent to your email' });
+};
+
+const resetPassword: RequestHandler = async (req, res) => {
+  const { token, password } = req.body;
+
+  const error = userService.validatePassword(password);
+  if (error) {
+    return res.status(400).json({ errors: { password: error }, message: 'Validation error' });
+  }
+
+  const user = await usersRepository.getByResetToken(token);
+  if (!user) {
+    return res.status(400).json({ message: 'Invalid or expired reset token' });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+  await usersRepository.updatePassword(user.email, hashedPassword);
+  await usersRepository.updateResetToken(user.email, null);
+
+  res.json({ message: 'Password has been successfully reset' });
+};
+
+const updateProfile: RequestHandler = async (req, res) => {
+  const { name, email } = req.body;
+  const currentUser = (req as any).user;
+
+  if (!currentUser) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  const updateData: { name?: string; email?: string } = {};
+
+  if (name) {
+    updateData.name = name;
+  }
+
+  if (email && email !== currentUser.email) {
+    const emailError = userService.validateEmail(email);
+    if (emailError) {
+      return res.status(400).json({ errors: { email: emailError }, message: 'Validation error' });
+    }
+
+    const existingUser = await usersRepository.getByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({ errors: { email: 'Email is already taken' }, message: 'Validation error' });
+    }
+
+    updateData.email = email;
+    await mailer.sendEmailChangeNotification(currentUser.email);
+  }
+
+  const updatedUser = await usersRepository.updateProfile(currentUser.id, updateData);
+
+  res.json({
+    user: userService.normalize(updatedUser),
+  });
+};
+
+const updatePasswordProfile: RequestHandler = async (req, res) => {
+  const { password } = req.body;
+  const currentUser = (req as any).user;
+
+  if (!currentUser) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  const error = userService.validatePassword(password);
+  if (error) {
+    return res.status(400).json({ errors: { password: error }, message: 'Validation error' });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+  await usersRepository.updatePassword(currentUser.email, hashedPassword);
+
+  res.json({ message: 'Password updated successfully' });
+};
+
 export const authController = {
   logout,
   refresh,
   login,
   register,
   activate,
+  forgotPassword,
+  resetPassword,
+  updateProfile,
+  updatePassword: updatePasswordProfile,
 };

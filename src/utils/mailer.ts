@@ -40,7 +40,20 @@ export function sendActivationLink(email: string, activationToken: string) {
   return send(email, 'Account activation', html);
 }
 
+export function sendResetLink(email: string, resetToken: string) {
+  const link = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+  const html = `<h1>Password Reset</h1><a href="${link}">Reset Password</a>`;
+  return send(email, 'Password Reset Request', html);
+}
+
+export function sendEmailChangeNotification(oldEmail: string) {
+  const html = `<h1>Email Changed</h1><p>Your account email has been changed.</p>`;
+  return send(oldEmail, 'Security Notification: Email Changed', html);
+}
+
 export const mailer = {
   send,
   sendActivationLink,
+  sendResetLink,
+  sendEmailChangeNotification,
 };
